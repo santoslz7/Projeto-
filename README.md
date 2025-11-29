@@ -1,38 +1,118 @@
-Projeto robô sumô 2025.
+// Definição dos pinos para a Ponte H (L298N)
+const int IN1 = 26;   // Motor esquerdo frente
+const int IN2 = 28;   // Motor esquerdo trás
+const int IN3 = 32;   // Motor direito frente
+const int IN4 = 34;   // Motor direito trás
 
-Turma de desenvolvimento de sistemas SENAI.
+// Definição dos pinos para o Sensor Ultrassônico (HC-SR04)
+const int TrigPinE = 2;
+const int TrigPinD = 11;
+const int TrigPinC = 4;
+const int EchoPinE = 3;
+const int EchoPinD = 5;
+const int EchoPinC = 12;
 
-Nosso projeto consiste na criação de um robô sumo auotônomo.
-Esse robô foi criado com o objetivo de participar de um campeonato de robôs sumos entre a turma de desenvolvimento de sistemas.
+// Definição dos pinos para os Sensores de Linha (analógicos)
+const int sensorLinhaEsquerdo = 6;
+const int sensorLinhaDireito = 8;
+const int sensorLinhaCentro = 7;
 
-O robô sumô autônomo de 1 kg é projetado para localizar e empurrar o adversário para fora do ringue sem controle humano.
-Ele utiliza um chassi impresso em 3D, dois motores 5V com redução controlados por uma ponte H L298N, e funciona com uma bateria de 9V.
-A inteligência do sistema é feita por um Arduino MEGA, que processa dados de 3 sensores de presença 
-para encontrar o oponente e 3 sensores seguidores de linha para detectar a borda da arena.
-O conjunto forma um robô leve, rápido e eficiente para competições de sumô.
+// Variáveis para o sensor ultrassônico
+long duracao, distancia;
 
-Montagem:
+const int LIMIAR_LINHA = 500; // Ajuste este valor
 
-Começamos com a porta h localizada no centro do chassi onde nela está conectada os motores do 5v, os pneus e a batreria.
-Na parte inferior do chassi se encontram os três sensores de linha: um do lado esquerdo, um do lado direito e um na parte traseira.
-Nas partes laterais estãO os sensores ultrassônicos ma parte direita, esquerda e no centro. E na parte superior acima da ponte H, está o Arduino 
-contendo as conexões dos sensores e da ponte H (ponte H conectada no GND do Arduino).
+void setup() {
+  // Configuração dos pinos dos motores como saída
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
 
-Estratégia:
+  // Configuração dos pinos do sensor ultrassônico
+  pinMode(TrigPinE, OUTPUT);
+  pinMode(TrigPinD, OUTPUT);
+  pinMode(TrigPinC, OUTPUT);
+  pinMode(EchoPinE, INPUT);
+  pinMode(EchoPinD, INPUT);
+  pinMode(EchoPinC, INPUT);
 
-Nossas estratégias estão focadas no contra ataque.
-A estratégia principal está focada no desvio do movimento do robo oponente e em seguida contra atacar detectando o robo adversário com os sensores 
-ultrassônicos. A estratégia secundaria tem o mesmo objetivo da primeira, mas ao invés do desvio do movimento no primeiro momento, o robô ira girar no
-seu próprio eixo dificultando o robô adversario a ter uma detecção precisa assim dando tempo para contra atacar. 
+  Serial.begin(9600); // Inicia comunicação serial para debug, se necessário
+  delay(2000); 
 
-Testes:
+void loop() {
+  //Leitura dos sensores de linha
+  int leituraEsq = analogRead(sensorLinhaEsquerdo);
+  int leituraDir = analogRead(sensorLinhaDireito);
+  int leituraCent = analogRead(sensorLinhaCentro);
 
-Os testes foram minimos por conta do tempo disponível, mas a parte elétrica testada até o momento está nos comformes. 
+  // Verificação de bordas
+  if (leituraEsq > LIMIAR_LINHA || leituraDir > LIMIAR_LINHA || leituraCent > LIMIAR_LINHA) {
+    // Detectou a linha branca (ou preta, dependendo da sua arena/sensor)
+    recuarETornar();
+  }
+  else {
+  
+   distancia = lerDistanciaUltrassonico();
+    if (distancia < 20) { // Oponente detectado a menos de 20 cm
+      atacarFrente();
+    }
+    else {
+      // 4. Se não houver obstáculo próximo, procurar pelo oponente (girar)
+      procurarOponente();
+    }
+  }
+}
 
-Conclusão: 
+//Funções de Movimento 
 
- Nosso projeto foi feito em equipe, cada um dos cinco componentes contrubuiu para concluirmos o nosso objetivo de fazer o robô funcionar.
- não tivemos muita dificuldade na montagem pois buscamos informações, tambem tivemos auxílio dos professores que foi um ponto importante 
- para que conseguissemos terminar a montagem. jà na parte elétrica nosso maior desafio foi fazer as conexões, pois no início não tinhamos
- fios o suficiente para fazer as conexões dos sensores ligados ao Arduino e a sensores ligados a ponte H.
+void parar() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+}
+void atacarFrente() {
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+void recuarETornar() {
+  // Recuar um pouco
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  delay(300);
 
+  //Girar para longe da linha
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  delay(400); // Tempo de giro
+
+  parar();
+}
+
+void procurarOponente() {
+  // Girar no próprio eixo para procurar o oponente
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+//Função do Sensor Ultrassônico 
+
+long lerDistanciaUltrassonico() {
+  digitalWrite(TrigPinD, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TrigPinD, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TrigPinD, LOW);
+  duracao = pulseIn(EchoPinD, HIGH);
+  distancia = duracao * 0.0343 / 2;
+  return distancia;
+}
